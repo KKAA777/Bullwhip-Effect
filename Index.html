@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>牛鞭效应实验室 V2.0 — Bullwhip Effect Interactive Supply Chain Lab</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-alt: #26334d;
+    --border: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --retailer: #22c55e;
+    --wholesaler: #eab308;
+    --distributor: #f97316;
+    --factory: #ef4444;
+    --consumer: #a855f7;
+    --danger: #f43f5e;
+    --ok: #10b981;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.45; font-size: 14px;
+  }
+  header {
+    background: rgba(15, 23, 42, 0.96);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    position: sticky; top: 0; z-index: 50;
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
+  }
+  .brand h1 { margin: 0; font-size: 16px; font-weight: 700; color: #fff; }
+  .brand p { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+  .top-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  button {
+    background: var(--panel-alt); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 11px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: background 0.12s, color 0.12s, transform 0.08s, border-color 0.12s;
+    min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  button:active { transform: scale(0.96); }
+  button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
+  button.active-tab {
+    background: var(--accent) !important;
+    color: #0f172a !important;
+    border-color: #fff !important;
+    font-weight: 800;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+  }
+  button.step-btn {
+    min-height: 28px; padding: 2px 9px; font-size: 14px; font-weight: 800;
+    background: #1e293b; border-color: #475569;
+  }
+  button.seg-btn {
+    flex: 1; min-height: 32px; padding: 4px 6px; font-size: 11.5px;
+  }
+
+  .toast-banner {
+    margin: 8px 14px 0; padding: 10px 14px; border-radius: 8px;
+    background: rgba(16, 185, 129, 0.16); border: 1px solid var(--ok);
+    color: #d1fae5; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .mode-nav {
+    display: flex; gap: 8px; padding: 8px 14px;
+    background: #131c31; border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .container {
+    max-width: 1440px; margin: 0 auto; padding: 12px;
+    display: grid; grid-template-columns: 1fr; gap: 12px;
+  }
+  @media (min-width: 960px) {
+    .container.lab-grid {
+      grid-template-columns: 1.32fr 1fr;
+      align-items: start;
+    }
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px;
+  }
+  .card-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px; gap: 8px; flex-wrap: wrap;
+  }
+  .card-title { font-size: 14px; font-weight: 700; margin: 0; }
+  .badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 99px;
+    background: var(--panel-alt); color: var(--accent); border: 1px solid var(--border); font-weight: 600;
+  }
+
+  /* Supply Chain Network Topology */
+  .chain-flow-legend {
+    display: flex; justify-content: space-between; font-size: 11px; color: var(--muted);
+    margin-bottom: 8px; padding: 5px 8px; background: #131c31; border-radius: 6px; flex-wrap: wrap; gap: 4px;
+  }
+  .nodes-row {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    overflow-x: auto; padding-bottom: 4px;
+  }
+  @media (max-width: 640px) {
+    .nodes-row { grid-template-columns: repeat(5, minmax(115px, 1fr)); }
+  }
+  .node-card {
+    background: #152036; border: 2px solid var(--border);
+    border-radius: 10px; padding: 8px; cursor: pointer;
+    position: relative; transition: 0.15s;
+  }
+  .node-card.selected {
+    border-color: var(--accent);
+    background: #1a2946;
+    box-shadow: 0 0 0 2px rgba(56,189,248,0.35);
+  }
+  .node-name { font-weight: 700; font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+  .node-metric { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; margin: 2px 0; }
+  .node-metric strong { color: var(--text); font-family: ui-monospace, SFMono-Regular, monospace; }
+  .flow-pill {
+    margin-top: 5px; padding: 3px 5px; border-radius: 5px; font-size: 10px;
+    display: flex; justify-content: space-between;
+  }
+  .flow-order { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }
+  .flow-ship { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+
+  /* Formula Inspector */
+  .formula-box {
+    background: #111827; border-left: 4px solid var(--accent);
+    padding: 10px 12px; border-radius: 8px; margin-top: 10px; font-size: 12.5px;
+  }
+  .formula-math {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    background: #1e293b; padding: 6px 8px; border-radius: 6px;
+    margin-top: 6px; font-size: 11.5px; color: #bae6fd; overflow-x: auto;
+  }
+
+  /* Controls & Sliders */
+  .exp-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .playback-bar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    background: #131c31; padding: 8px 10px; border-radius: 8px; margin-bottom: 10px;
+  }
+  .slider-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;
+  }
+  .param-item {
+    background: #152036; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+  }
+  .param-label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 4px; align-items: center; }
+  .param-label strong { color: var(--accent); font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .slider-row { display: flex; align-items: center; gap: 6px; }
+  .param-desc { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+  input[type="range"] { flex: 1; accent-color: var(--accent); cursor: pointer; height: 24px; }
+
+  /* Canvas Chart */
+  .chart-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .canvas-wrap {
+    width: 100%; height: 280px; background: #0b1120;
+    border-radius: 8px; border: 1px solid var(--border); position: relative;
+  }
+  canvas { width: 100%; height: 100%; display: block; }
+
+  /* BWR Metrics Row */
+  .bwr-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px;
+  }
+  @media (max-width: 520px) {
+    .bwr-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .bwr-card {
+    background: #152036; border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px; text-align: center; cursor: pointer;
+  }
+  .bwr-card.selected { border-color: var(--accent); }
+  .bwr-val { font-size: 16px; font-weight: 800; font-family: ui-monospace, monospace; margin: 2px 0; }
+  .bwr-sub { font-size: 10px; color: var(--muted); }
+
+  /* 4-Layer Pedagogy */
+  .layers-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 8px;
+  }
+  .layer-box {
+    background: #152036; border: 1px solid var(--border); border-radius: 8px; padding: 9px;
+  }
+  .layer-box h4 { margin: 0 0 4px; font-size: 12px; color: var(--accent); }
+  .layer-box p { margin: 0; font-size: 12px; color: #e2e8f0; }
+
+  .hidden { display: none !important; }
+  .quiz-card {
+    background: #152036; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; margin-bottom: 10px;
+  }
+  .quiz-opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .quiz-feedback {
+    margin-top: 8px; padding: 8px 10px; border-radius: 6px;
+    background: rgba(16, 185, 129, 0.14); border: 1px solid var(--ok); font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>牛鞭效应实验室 V2.0 · Bullwhip Effect Lab</h1>
+    <p>消费者 → 零售商 → 批发商 → 分销商 → 工厂｜全触控即时响应版</p>
+  </div>
+  <div class="top-actions">
+    <button id="checkBtn" onclick="runSelfCheck()">✓ 10项守恒自检</button>
+    <button class="primary" onclick="downloadSelfHTML()">⬇ 导出 HTML</button>
+  </div>
+</header>
+
+<div id="selfCheckBanner" class="toast-banner hidden">
+  <span id="selfCheckText"></span>
+  <button onclick="document.getElementById('selfCheckBanner').classList.add('hidden')" style="min-height:28px;padding:2px 8px;">关闭</button>
+</div>
+
+<nav class="mode-nav">
+  <button id="tabBtn-lab" class="active-tab" onclick="switchMode('lab')">一、交互实验工作台（四大实验）</button>
+  <button id="tabBtn-game" onclick="switchMode('game')">二、50周互动经营模式（角色扮演）</button>
+  <button id="tabBtn-quiz" onclick="switchMode('quiz')">三、五道预测挑战（先猜后验）</button>
+</nav>
+
+<!-- ==================== MODE 1: MAIN LAB ==================== -->
+<div id="mode-lab" class="container lab-grid">
+  <!-- Left Column -->
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">A. 四级供应链动态图（轻点任意企业卡片切换透视）</h2>
+        <span class="badge" id="currentWeekBadge">当前观测：第 8 周 / 共 52 周</span>
+      </div>
+
+      <div class="chain-flow-legend">
+        <span><strong style="color:#38bdf8;">───▶ 向上游传递：采购订单流 (Orders)</strong></span>
+        <span><strong style="color:#fbbf24;">◀─── 向下游运输：商品实物流 (Shipments)</strong></span>
+      </div>
+
+      <div class="nodes-row" id="topologyContainer"></div>
+      <div class="formula-box" id="formulaInspector"></div>
+    </div>
+
+    <!-- Charts Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">B/C/D. 动态曲线与在途状态（点击图表可直接跳转周次）</h2>
+        <div class="chart-tabs">
+          <button id="chartTab-orders" class="active-tab" onclick="setChartType('orders')">B. 订单放大曲线</button>
+          <button id="chartTab-inventory" onclick="setChartType('inventory')">C. 净库存与缺货积压</button>
+          <button id="chartTab-transit" onclick="setChartType('transit')">D. 物流在途批次</button>
+        </div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="mainChart"></canvas>
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:11px; margin-top:6px; justify-content:center;">
+        <span style="color:#a855f7;">● 消费者需求</span>
+        <span style="color:#22c55e;">● 零售商 (点按可聚焦)</span>
+        <span style="color:#eab308;">● 批发商</span>
+        <span style="color:#f97316;">● 分销商</span>
+        <span style="color:#ef4444;">● 工厂</span>
+      </div>
+
+      <div style="margin-top:10px; font-size:12px; font-weight:700; color:var(--muted);">
+        E. 牛鞭效应放大指标 BWR = Var(订单) / Var(消费者需求) ［点击卡片可切换企业］
+      </div>
+      <div class="bwr-grid" id="bwrContainer"></div>
+    </div>
+
+    <!-- 4-Layer Causal Explanation -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title" id="expTitleBanner">四层因果教学拆解</h2>
+      </div>
+      <div class="layers-grid" id="fourLayersContainer"></div>
+    </div>
+  </div>
+
+  <!-- Right Column: Controls -->
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">核心实验一键切换（浅蓝高亮实时跟随）</h2>
+        <span class="badge" id="activePresetBadge">当前：实验一A</span>
+      </div>
+
+      <div class="exp-bar">
+        <button class="exp-btn active-tab" data-exp="exp1_amp" onclick="loadExperiment('exp1_amp')">实验一A：+5%层层放大</button>
+        <button class="exp-btn" data-exp="exp1_smooth" onclick="loadExperiment('exp1_smooth')">实验一B：+5%平稳无放大</button>
+        <button class="exp-btn" data-exp="exp2_panic" onclick="loadExperiment('exp2_panic')">实验二：越怕缺货越积压</button>
+        <button class="exp-btn" data-exp="exp3_short" onclick="loadExperiment('exp3_short')">实验三：短提前期(L=1)</button>
+        <button class="exp-btn" data-exp="exp3_med" onclick="loadExperiment('exp3_med')">实验三：中提前期(L=2)</button>
+        <button class="exp-btn" data-exp="exp3_long" onclick="loadExperiment('exp3_long')">实验三：长提前期(L=4)</button>
+      </div>
+
+      <div style="border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
+        <div style="font-size:12px; font-weight:700; margin-bottom:6px; color:var(--accent);">
+          核心实验四：单变量消减牛鞭效应对照（与 4-0 基准组对比）
+        </div>
+        <div class="exp-bar">
+          <button class="exp-btn" data-exp="exp4_base" onclick="loadExperiment('exp4_base')">4-0. 基准未优化组</button>
+          <button class="exp-btn" data-exp="exp4_pos" onclick="loadExperiment('exp4_pos')">4-1. 共享POS真实需求</button>
+          <button class="exp-btn" data-exp="exp4_lead" onclick="loadExperiment('exp4_lead')">4-2. 缩短提前期(L=1)</button>
+          <button class="exp-btn" data-exp="exp4_pipe" onclick="loadExperiment('exp4_pipe')">4-3. 100%计入在途</button>
+          <button class="exp-btn" data-exp="exp4_smooth" onclick="loadExperiment('exp4_smooth')">4-4. 平滑订货(γ=0.25)</button>
+          <button class="exp-btn" data-exp="exp4_zero_safety" onclick="loadExperiment('exp4_zero_safety')">4-5. 砍光安全库存(反例)</button>
+        </div>
+      </div>
+
+      <!-- Time Scrubber -->
+      <div class="playback-bar">
+        <button onclick="stepWeek(-1)">◀ 上周</button>
+        <button class="primary" id="playPauseBtn" onclick="togglePlay()">▶ 自动播放</button>
+        <button onclick="stepWeek(1)">下周 ▶</button>
+        <div style="flex:1; min-width:130px; display:flex; align-items:center; gap:6px;">
+          <input type="range" id="weekSlider" min="1" max="52" value="8" oninput="setWeek(this.value)" onchange="setWeek(this.value)">
+          <strong id="weekNumLabel" style="font-size:12px; min-width:36px; color:var(--accent);">W8</strong>
+        </div>
+      </div>
+
+      <!-- Parameter Sliders with +/- Steppers -->
+      <div class="slider-grid">
+        <div class="param-item">
+          <div class="param-label"><span>1. 第5周后消费者需求</span><strong id="val-demandStep">105 件 (+5%)</strong></div>
+          <div class="slider-row">
+            <button class="step-btn" onclick="nudgeSlider('inp-demandStep', -1)">－</button>
+            <input type="range" id="inp-demandStep" min="100" max="130" step="1" value="105" oninput="updateParam('demandStep')" onchange="updateParam('demandStep')">
+            <button class="step-btn" onclick="nudgeSlider('inp-demandStep', 1)">＋</button>
+          </div>
+          <div class="param-desc">第1-4周稳态100件，第5周起永久阶跃</div>
+        </div>
+
+        <div class="param-item">
+          <div class="param-label"><span>2. 安全库存系数 (β)</span><strong id="val-safety">0.50</strong></div>
+          <div class="slider-row">
+            <button class="step-btn" onclick="nudgeSlider('inp-safety', -0.05)">－</button>
+            <input type="range" id="inp-safety" min="0" max="1.2" step="0.05" value="0.50" oninput="updateParam('safety')" onchange="updateParam('safety')">
+            <button class="step-btn" onclick="nudgeSlider('inp-safety', 0.05)">＋</button>
+          </div>
+          <div class="param-desc">越怕缺货 β 越高，预测上升时补库越激进</div>
+        </div>
+
+        <div class="param-item">
+          <div class="param-label"><span>3. 补货运输提前期 (L)</span><strong id="val-lead">2 周</strong></div>
+          <div class="slider-row">
+            <button class="step-btn" onclick="nudgeSlider('inp-lead', -1)">－</button>
+            <input type="range" id="inp-lead" min="1" max="4" step="1" value="2" oninput="updateParam('lead')" onchange="updateParam('lead')">
+            <button class="step-btn" onclick="nudgeSlider('inp-lead', 1)">＋</button>
+          </div>
+          <div class="param-desc">上游发货后需在途运输 L 周才入库</div>
+        </div>
+
+        <div class="param-item">
+          <div class="param-label"><span>4. 在途库存感知权重 (θ)</span><strong id="val-pipe">0.80</strong></div>
+          <div class="slider-row">
+            <button class="step-btn" onclick="nudgeSlider('inp-pipe', -0.05)">－</button>
+            <input type="range" id="inp-pipe" min="0.40" max="1.00" step="0.05" value="0.80" oninput="updateParam('pipe')" onchange="updateParam('pipe')">
+            <button class="step-btn" onclick="nudgeSlider('inp-pipe', 0.05)">＋</button>
+          </div>
+          <div class="param-desc">θ=1完全理性；小于1代表忽略在途而重复追单</div>
+        </div>
+
+        <div class="param-item">
+          <div class="param-label"><span>5. 库存缺口调整速度 (γ)</span><strong id="val-gamma">0.80</strong></div>
+          <div class="slider-row">
+            <button class="step-btn" onclick="nudgeSlider('inp-gamma', -0.05)">－</button>
+            <input type="range" id="inp-gamma" min="0.15" max="1.00" step="0.05" value="0.80" oninput="updateParam('gamma')" onchange="updateParam('gamma')">
+            <button class="step-btn" onclick="nudgeSlider('inp-gamma', 0.05)">＋</button>
+          </div>
+          <div class="param-desc">当期修补目标库存缺口的急迫程度</div>
+        </div>
+
+        <div class="param-item">
+          <div class="param-label"><span>6. 预测平滑系数 (α)</span><strong id="val-alpha">0.40</strong></div>
+          <div class="slider-row">
+            <button class="step-btn" onclick="nudgeSlider('inp-alpha', -0.05)">－</button>
+            <input type="range" id="inp-alpha" min="0.10" max="0.90" step="0.05" value="0.40" oninput="updateParam('alpha')" onchange="updateParam('alpha')">
+            <button class="step-btn" onclick="nudgeSlider('inp-alpha', 0.05)">＋</button>
+          </div>
+          <div class="param-desc">α 越大对近期订单变化越敏感</div>
+        </div>
+
+        <div class="param-item">
+          <div class="param-label"><span>7. 终端 POS 信息共享率 (ω)</span><strong id="val-pos">0%</strong></div>
+          <div class="slider-row">
+            <button class="step-btn" onclick="nudgeSlider('inp-pos', -0.1)">－</button>
+            <input type="range" id="inp-pos" min="0" max="1.0" step="0.1" value="0" oninput="updateParam('pos')" onchange="updateParam('pos')">
+            <button class="step-btn" onclick="nudgeSlider('inp-pos', 0.1)">＋</button>
+          </div>
+          <div class="param-desc">调高后上游直接看消费者需求（自动聚焦工厂查看变化）</div>
+        </div>
+
+        <div class="param-item">
+          <div class="param-label"><span>8. 订货批量 & 缺货处理规则</span><strong id="val-batch">批量1 / 积压</strong></div>
+          <div style="display:flex; gap:4px; margin-top:4px;">
+            <button class="seg-btn batch-btn active-tab" data-batch="1" onclick="setBatch(1)">批量=1</button>
+            <button class="seg-btn batch-btn" data-batch="10" onclick="setBatch(10)">批量=10</button>
+            <button class="seg-btn batch-btn" data-batch="25" onclick="setBatch(25)">批量=25</button>
+          </div>
+          <div style="display:flex; gap:4px; margin-top:5px;">
+            <button class="seg-btn mode-btn active-tab" data-bmode="backorder" onclick="setBacklogMode('backorder')">缺货积压补发</button>
+            <button class="seg-btn mode-btn" data-bmode="lostsales" onclick="setBacklogMode('lostsales')">缺货当期失销</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODE 2: 50-WEEK INTERACTIVE GAME ==================== -->
+<div id="mode-game" class="container hidden">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">七、互动经营模式（50周角色扮演挑战）</h2>
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <button id="roleBtn-0" class="active-tab" onclick="setGameRole(0)">扮演：零售商总经理</button>
+        <button id="roleBtn-3" onclick="setGameRole(3)">扮演：工厂排产厂长</button>
+        <button onclick="initGame()">↻ 重新开始</button>
+      </div>
+    </div>
+
+    <div class="slider-grid" style="margin-bottom:12px;">
+      <div class="param-item">
+        <div class="param-label"><span>当前经营周次</span><strong id="game-weekLabel">第 1 / 50 周</strong></div>
+        <div class="node-metric"><span>本周收到下游订单：</span><strong id="game-inOrder">100 件</strong></div>
+        <div class="node-metric"><span>当前可用现存库存：</span><strong id="game-onHand">50 件</strong></div>
+        <div class="node-metric"><span>在途即将到货明细：</span><strong id="game-inTransit">100 / 100 件</strong></div>
+        <div class="node-metric"><span>当前未满足缺货积压：</span><strong id="game-backlog" style="color:var(--danger);">0 件</strong></div>
+      </div>
+
+      <div class="param-item">
+        <div class="param-label"><span>你的本周订货量决策</span><strong id="game-orderVal" style="font-size:15px;">100 件</strong></div>
+        <div class="slider-row">
+          <button class="step-btn" onclick="nudgeGameOrder(-5)">-5</button>
+          <input type="range" id="game-orderSlider" min="0" max="250" step="1" value="100" oninput="document.getElementById('game-orderVal').textContent=this.value+' 件'">
+          <button class="step-btn" onclick="nudgeGameOrder(5)">+5</button>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:6px; flex-wrap:wrap;">
+          <span style="font-size:11px; color:var(--muted);">AI建议: <strong id="game-aiSuggest" style="color:#fff;">100</strong> 件</span>
+          <button class="primary" onclick="submitGameWeek()">确认下达本周订单 ▶</button>
+          <button onclick="autoFinishGame()">快进至50周</button>
+        </div>
+      </div>
+
+      <div class="param-item">
+        <div class="param-label"><span>累计经营绩效对比</span><strong id="game-statusBadge">进行中</strong></div>
+        <div class="node-metric"><span>你的累计成本 (仓储+缺货)：</span><strong id="game-myCost">$0</strong></div>
+        <div class="node-metric"><span>AI自动基准累计成本：</span><strong id="game-aiCost">$0</strong></div>
+        <div class="node-metric"><span>全链工厂牛鞭方差比 (BWR)：</span><strong id="game-bwr">1.0x</strong></div>
+        <div class="node-metric"><span>本周诊断：</span><strong id="game-feedback" style="color:#fcd34d;">稳态运行中</strong></div>
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="gameChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODE 3: 5 PREDICTION CHALLENGES ==================== -->
+<div id="mode-quiz" class="container hidden">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">十、五道互动预测挑战（点击选项高亮你的预测，再点右侧按钮一键加载实验验证）</h2>
+    </div>
+    <div id="quizListContainer"></div>
+  </div>
+</div>
+
+<script>
+const STAGE_NAMES = ["零售商 (Retailer)", "批发商 (Wholesaler)", "分销商 (Distributor)", "工厂 (Factory)"];
+const STAGE_COLORS = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
+const TOTAL_WEEKS = 52;
+
+let state = {
+  mode: 'lab',
+  currentWeek: 6,
+  selectedStage: 0,
+  chartType: 'orders',
+  playing: false,
+  timer: null,
+  activePreset: 'exp1_amp',
+  expName: '实验一A：+5%需求增长如何层层放大',
+  params: {
+    demandStep: 105,
+    safety: 0.50,
+    lead: 2,
+    pipe: 0.80,
+    gamma: 0.80,
+    alpha: 0.40,
+    pos: 0.0,
+    batch: 1,
+    backlogMode: 'backorder',
+    factoryCap: 250
+  },
+  simData: null
+};
+
+// Strict Physical Inventory & Pipeline Conservation Engine
+function runSimulation(p, customPlayerOrders = null) {
+  const L = p.lead;
+  const initD = 100;
+  // Realistic initial safety stock buffer so low-safety or high-shock scenarios actually experience stockouts
+  const initOnHand = Math.round(initD * (0.25 + p.safety * 0.6));
+  const targetInit = initOnHand + L * initD;
+
+  let stages = [0, 1, 2, 3].map(idx => ({
+    idx,
+    name: STAGE_NAMES[idx],
+    onHand: initOnHand,
+    backlog: 0,
+    forecast: initD,
+    transitQueue: Array(L).fill(initD),
+    history: []
+  }));
+
+  let consumerHistory = [];
+
+  for (let w = 1; w <= TOTAL_WEEKS; w++) {
+    const cDemand = (w < 5) ? 100 : p.demandStep;
+    consumerHistory.push(cDemand);
+
+    let weeklyOrdersPlaced = [0, 0, 0, 0];
+    let stepRecords = [];
+
+    for (let i = 0; i < 4; i++) {
+      let st = stages[i];
+      const arrived = st.transitQueue.shift();
+      const avail = st.onHand + arrived;
+      const downOrder = (i === 0) ? cDemand : weeklyOrdersPlaced[i - 1];
+
+      const totalReq = (p.backlogMode === 'backorder') ? (st.backlog + downOrder) : downOrder;
+      const shipped = Math.min(avail, totalReq);
+      const endOnHand = avail - shipped;
+      const endBacklog = (p.backlogMode === 'backorder') ? (totalReq - shipped) : 0;
+      const lostSales = (p.backlogMode === 'lostsales') ? (totalReq - shipped) : 0;
+
+      st.onHand = endOnHand;
+      st.backlog = endBacklog;
+
+      // Forecast Update
+      const signal = (i === 0) ? cDemand : (p.pos * cDemand + (1 - p.pos) * downOrder);
+      const newForecast = (w <= 4) ? initD : (p.alpha * signal + (1 - p.alpha) * st.forecast);
+      st.forecast = newForecast;
+
+      // Target Inventory scales with forecast, lead time, and safety factor
+      const desiredBuffer = newForecast * (0.25 + p.safety * (0.6 + 0.25 * L));
+      const desiredPipeline = L * newForecast;
+      const targetInv = desiredBuffer + desiredPipeline;
+
+      const remainingTransit = st.transitQueue.reduce((a, b) => a + b, 0);
+      const upstreamBacklog = (i < 3) ? stages[i + 1].backlog : 0;
+      // In steady state Weeks 1-4, keep equilibrium; from Week 5 apply behavioral pipeline weight theta
+      const effPipeWeight = (w <= 4) ? 1.0 : p.pipe;
+      const perceivedPipeline = effPipeWeight * (remainingTransit + newForecast + upstreamBacklog);
+      const effectiveIP = (endOnHand - endBacklog) + perceivedPipeline;
+
+      let rawOrder = newForecast + p.gamma * (targetInv - effectiveIP);
+      rawOrder = Math.max(0, rawOrder);
+
+      let finalOrder = (w <= 4) ? initD : Math.round(rawOrder / p.batch) * p.batch;
+      if (customPlayerOrders && customPlayerOrders.role === i && customPlayerOrders.orders[w] !== undefined) {
+        finalOrder = customPlayerOrders.orders[w];
+      }
+
+      weeklyOrdersPlaced[i] = finalOrder;
+
+      const holdingCost = endOnHand * 0.5;
+      const stockoutCost = (endBacklog + lostSales) * 2.5;
+
+      stepRecords.push({
+        week: w,
+        downOrder,
+        arrived,
+        avail,
+        shipped,
+        endOnHand,
+        endBacklog: endBacklog + lostSales,
+        forecast: newForecast,
+        targetInv,
+        effectiveIP,
+        orderPlaced: finalOrder,
+        aiSuggestedOrder: Math.max(0, Math.round(rawOrder)),
+        inTransitQueue: [],
+        inTransitSum: 0,
+        holdingCost,
+        stockoutCost,
+        totalCost: holdingCost + stockoutCost
+      });
+    }
+
+    // Push upstream shipments into downstream transit queues
+    for (let i = 0; i < 4; i++) {
+      let st = stages[i];
+      let incomingShipment = (i < 3)
+        ? stepRecords[i + 1].shipped
+        : Math.min(weeklyOrdersPlaced[3], p.factoryCap);
+      st.transitQueue.push(incomingShipment);
+      stepRecords[i].inTransitQueue = [...st.transitQueue];
+      stepRecords[i].inTransitSum = st.transitQueue.reduce((a, b) => a + b, 0);
+      st.history.push(stepRecords[i]);
+    }
+  }
+
+  return { consumerHistory, stages };
+}
+
+function calcVariance(arr) {
+  if (!arr || arr.length < 2) return 0;
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  return arr.reduce((acc, v) => acc + (v - mean) * (v - mean), 0) / arr.length;
+}
+
+function updatePresetHighlight(activeCode) {
+  state.activePreset = activeCode;
+  document.querySelectorAll('.exp-btn').forEach(btn => {
+    btn.classList.toggle('active-tab', btn.getAttribute('data-exp') === activeCode);
+  });
+  const badge = document.getElementById('activePresetBadge');
+  if (activeCode === 'custom') {
+    badge.textContent = '当前：自定义参数调节中';
+    badge.style.color = '#fcd34d';
+  } else {
+    badge.textContent = state.expName.split('：')[0];
+    badge.style.color = 'var(--accent)';
+  }
+}
+
+function updateSimulationAndRender() {
+  state.simData = runSimulation(state.params);
+  renderTopology();
+  renderFormulaInspector();
+  renderMainChart();
+  renderBWR();
+  renderFourLayers();
+}
+
+function renderTopology() {
+  const wIdx = state.currentWeek - 1;
+  const cDemand = state.simData.consumerHistory[wIdx];
+  document.getElementById('currentWeekBadge').textContent = `当前观测：第 ${state.currentWeek} 周 / 共 ${TOTAL_WEEKS} 周`;
+  document.getElementById('weekSlider').value = state.currentWeek;
+  document.getElementById('weekNumLabel').textContent = `W${state.currentWeek}`;
+
+  let html = `
+    <div class="node-card" style="border-color:#a855f7; cursor:default;">
+      <div class="node-name"><span style="color:#a855f7;">终端消费者</span><span>W${state.currentWeek}</span></div>
+      <div class="node-metric"><span>当周真实需求:</span><strong>${cDemand} 件</strong></div>
+      <div class="node-metric"><span>较稳态变化:</span><strong>${cDemand >= 100 ? '+' : ''}${cDemand - 100}%</strong></div>
+      <div class="flow-pill flow-order"><span>发出购买 ▶</span><strong>${cDemand}</strong></div>
+      <div class="flow-pill flow-ship"><span>◀ 收到商品</span><strong>${Math.round(state.simData.stages[0].history[wIdx].shipped)}</strong></div>
+    </div>
+  `;
+
+  state.simData.stages.forEach((st, idx) => {
+    const rec = st.history[wIdx];
+    const isSel = state.selectedStage === idx;
+    const statusColor = rec.endBacklog > 0 ? 'var(--danger)' : 'var(--ok)';
+    html += `
+      <div class="node-card ${isSel ? 'selected' : ''}" onclick="selectStage(${idx})">
+        <div class="node-name">
+          <span style="color:${STAGE_COLORS[idx]};">${st.name.split(' ')[0]}</span>
+          <span style="font-size:10px; padding:1px 5px; border-radius:4px; background:${isSel ? 'var(--accent)' : '#1e293b'}; color:${isSel ? '#0f172a' : '#94a3b8'};">${isSel ? '当前选中' : '点击查看'}</span>
+        </div>
+        <div class="node-metric"><span>期末在库库存:</span><strong>${Math.round(rec.endOnHand)} 件</strong></div>
+        <div class="node-metric"><span>在途货物总量:</span><strong>${Math.round(rec.inTransitSum)} 件</strong></div>
+        <div class="node-metric"><span>未满足缺货:</span><strong style="color:${statusColor}">${Math.round(rec.endBacklog)} 件</strong></div>
+        <div class="flow-pill flow-order"><span>向上订货 ▶</span><strong>${rec.orderPlaced} 件</strong></div>
+        <div class="flow-pill flow-ship"><span>◀ 向下发货</span><strong>${Math.round(rec.shipped)} 件</strong></div>
+      </div>
+    `;
+  });
+
+  document.getElementById('topologyContainer').innerHTML = html;
+}
+
+function renderFormulaInspector() {
+  const idx = state.selectedStage;
+  const st = state.simData.stages[idx];
+  const rec = st.history[state.currentWeek - 1];
+  const p = state.params;
+
+  const box = document.getElementById('formulaInspector');
+  box.innerHTML = `
+    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+      <strong style="color:${STAGE_COLORS[idx]};">【第 ${state.currentWeek} 周 · ${st.name} 订货决策公式溯源】</strong>
+      <span style="font-size:11px; color:var(--accent);">提前期 L=${p.lead}周 ｜ 安全系数 β=${p.safety.toFixed(2)} ｜ 在途权重 θ=${p.pipe.toFixed(2)} ｜ 调整速度 γ=${p.gamma.toFixed(2)}</span>
+    </div>
+    <p style="margin:6px 0 4px;">
+      本周<strong>${st.name.split(' ')[0]}</strong>接收下游订单 <strong>${rec.downOrder}</strong> 件，期初到货后可用现货 <strong>${Math.round(rec.avail)}</strong> 件，实际发货 <strong>${Math.round(rec.shipped)}</strong> 件，期末在库库存 <strong>${Math.round(rec.endOnHand)}</strong> 件，未满足缺货 <strong>${Math.round(rec.endBacklog)}</strong> 件。当前在途管道共 <strong>${Math.round(rec.inTransitSum)}</strong> 件（各周批次：[${rec.inTransitQueue.map(x => Math.round(x)).join(', ')}] 件）。
+    </p>
+    <div class="formula-math">
+      ① 需求预测更新 D̂ = ${rec.forecast.toFixed(1)} 件 ｜ ② 目标库存水位 S_target = ${rec.targetInv.toFixed(1)} 件<br>
+      ③ 有效库存头寸 IP = (期末库存 ${Math.round(rec.endOnHand)} - 缺货 ${Math.round(rec.endBacklog)}) + θ(${p.pipe.toFixed(2)}) × 在途管道 = ${rec.effectiveIP.toFixed(1)} 件<br>
+      ④ 本周发出订单 O = max(0, D̂ + γ×(S_target - IP)) = max(0, ${rec.forecast.toFixed(1)} + ${p.gamma.toFixed(2)}×(${rec.targetInv.toFixed(1)} - ${rec.effectiveIP.toFixed(1)})) → <strong>${rec.orderPlaced} 件</strong>
+    </div>
+  `;
+}
+
+function renderMainChart() {
+  const canvas = document.getElementById('mainChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 44, r: 18, t: 22, b: 28 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  if (state.chartType === 'transit') {
+    const wIdx = state.currentWeek - 1;
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(`第 ${state.currentWeek} 周各级企业在途货物批次与到达倒计时（单位：件）`, pad.l, 15);
+
+    const barWidth = Math.min(80, plotW / 4 - 20);
+    let maxTransit = 260;
+    state.simData.stages.forEach(s => {
+      maxTransit = Math.max(maxTransit, s.history[wIdx].inTransitSum + 40);
+    });
+
+    state.simData.stages.forEach((st, i) => {
+      const rec = st.history[wIdx];
+      const x = pad.l + i * (plotW / 4) + 10;
+      let yCursor = pad.t + plotH;
+
+      rec.inTransitQueue.forEach((qty, batchIdx) => {
+        const h = Math.max(14, (qty / maxTransit) * (plotH - 24));
+        ctx.fillStyle = STAGE_COLORS[i];
+        ctx.globalAlpha = 0.55 + 0.15 * (batchIdx % 3);
+        ctx.fillRect(x, yCursor - h, barWidth, h - 2);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#fff';
+        ctx.font = '11px monospace';
+        ctx.fillText(`${Math.round(qty)} (${batchIdx + 1}周到)`, x + 4, yCursor - h / 2 + 4);
+        yCursor -= h;
+      });
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(st.name.split(' ')[0], x + 4, H - 8);
+    });
+    return;
+  }
+
+  let maxY = 200;
+  let minY = (state.chartType === 'orders') ? 0 : -40;
+
+  if (state.chartType === 'orders') {
+    state.simData.stages.forEach(st => {
+      st.history.forEach(r => { if (r.orderPlaced > maxY) maxY = r.orderPlaced + 20; });
+    });
+  } else {
+    state.simData.stages.forEach(st => {
+      st.history.forEach(r => {
+        const net = r.endOnHand - r.endBacklog;
+        if (net > maxY) maxY = net + 20;
+        if (net < minY) minY = net - 20;
+      });
+    });
+  }
+
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) {
+    const y = pad.t + (plotH * g) / 4;
+    const val = Math.round(maxY - ((maxY - minY) * g) / 4);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#64748b'; ctx.font = '10px monospace';
+    ctx.fillText(val, 6, y + 3);
+  }
+
+  // Zero line for inventory chart
+  if (state.chartType === 'inventory' && minY < 0) {
+    const zeroY = pad.t + ((maxY - 0) / Math.max(1, maxY - minY)) * plotH;
+    ctx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+    ctx.beginPath(); ctx.moveTo(pad.l, zeroY); ctx.lineTo(W - pad.r, zeroY); ctx.stroke();
+  }
+
+  const curX = pad.l + ((state.currentWeek - 1) / (TOTAL_WEEKS - 1)) * plotW;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(curX, pad.t); ctx.lineTo(curX, pad.t + plotH); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const toXY = (wIdx, val) => ({
+    x: pad.l + (wIdx / (TOTAL_WEEKS - 1)) * plotW,
+    y: pad.t + ((maxY - val) / Math.max(1, maxY - minY)) * plotH
+  });
+
+  if (state.chartType === 'orders') {
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    state.simData.consumerHistory.forEach((d, idx) => {
+      const pt = toXY(idx, d);
+      if (idx === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+    });
+    ctx.stroke();
+  }
+
+  state.simData.stages.forEach((st, sIdx) => {
+    ctx.strokeStyle = STAGE_COLORS[sIdx];
+    ctx.lineWidth = (state.selectedStage === sIdx) ? 3.2 : 1.6;
+    ctx.beginPath();
+    st.history.forEach((rec, wIdx) => {
+      const val = (state.chartType === 'orders') ? rec.orderPlaced : (rec.endOnHand - rec.endBacklog);
+      const pt = toXY(wIdx, val);
+      if (wIdx === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+    });
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
+  [1, 5, 10, 20, 30, 40, 52].forEach(w => {
+    const x = pad.l + ((w - 1) / (TOTAL_WEEKS - 1)) * plotW;
+    ctx.fillText(`W${w}`, x - 8, H - 8);
+  });
+}
+
+// Click on Main Chart to scrub week directly
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('mainChart');
+  canvas.addEventListener('pointerdown', (e) => {
+    if (state.chartType === 'transit') return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const padL = 44, padR = 18;
+    const ratio = (clickX - padL) / Math.max(1, rect.width - padL - padR);
+    const w = Math.round(1 + ratio * (TOTAL_WEEKS - 1));
+    if (w >= 1 && w <= TOTAL_WEEKS) setWeek(w);
+  });
+});
+
+function renderBWR() {
+  const cArr = state.simData.consumerHistory;
+  const varD = calcVariance(cArr);
+  const container = document.getElementById('bwrContainer');
+
+  let html = '';
+  state.simData.stages.forEach((st, idx) => {
+    const orders = st.history.map(r => r.orderPlaced);
+    const varO = calcVariance(orders);
+    const peak = Math.max(...orders);
+    const totalCost = Math.round(st.history.reduce((a, r) => a + r.totalCost, 0));
+
+    let metricText = (varD > 1e-5) ? `${(varO / varD).toFixed(1)}x` : `σ=${Math.sqrt(varO).toFixed(1)}`;
+    let subText = `峰值 ${peak} 件｜成本 $${totalCost.toLocaleString()}`;
+
+    html += `
+      <div class="bwr-card ${state.selectedStage === idx ? 'selected' : ''}" onclick="selectStage(${idx})">
+        <div style="font-size:11px; font-weight:700; color:${STAGE_COLORS[idx]};">${st.name.split(' ')[0]}</div>
+        <div class="bwr-val">${metricText}</div>
+        <div class="bwr-sub">${subText}</div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function renderFourLayers() {
+  const st0 = state.simData.stages[0].history[4];
+  const st3Peak = Math.max(...state.simData.stages[3].history.map(r => r.orderPlaced));
+  const totalChainCost = Math.round(
+    state.simData.stages.reduce((acc, s) => acc + s.history.reduce((a, r) => a + r.totalCost, 0), 0)
+  );
+
+  document.getElementById('expTitleBanner').textContent = `${state.expName}（全链52周总成本：$${totalChainCost.toLocaleString()}）`;
+
+  document.getElementById('fourLayersContainer').innerHTML = `
+    <div class="layer-box">
+      <h4>1. 发生了什么？</h4>
+      <p>第 5 周消费者需求变为 ${state.params.demandStep} 件（+${state.params.demandStep - 100}%），零售商订单升至 <strong>${st0.orderPlaced} 件</strong>，传至工厂时订单峰值达到 <strong>${st3Peak} 件</strong>。</p>
+    </div>
+    <div class="layer-box">
+      <h4>2. 为什么发生？</h4>
+      <p>企业不仅补齐当周售出缺口，还按提前期 L=${state.params.lead} 与安全系数 β=${state.params.safety.toFixed(2)} 扩充目标库存；且当 θ=${state.params.pipe.toFixed(2)} 时低估在途货物导致重复追单。</p>
+    </div>
+    <div class="layer-box">
+      <h4>3. 数据证据是什么？</h4>
+      <p>第 5 周零售商预测需求升至 ${st0.forecast.toFixed(1)} 件，目标水位升至 ${st0.targetInv.toFixed(1)} 件，有效头寸仅 ${st0.effectiveIP.toFixed(1)} 件，差额直接放大了采购订单。</p>
+    </div>
+    <div class="layer-box">
+      <h4>4. 改变什么会怎样？</h4>
+      <p>点击右侧「4-1 共享POS」或「4-3 100%计入在途」，可立即对比相同需求下的工厂峰值回落与成本下降。</p>
+    </div>
+  `;
+}
+
+function selectStage(idx) {
+  state.selectedStage = idx;
+  renderTopology();
+  renderFormulaInspector();
+  renderMainChart();
+  renderBWR();
+}
+
+function setChartType(type) {
+  state.chartType = type;
+  ['orders', 'inventory', 'transit'].forEach(t => {
+    document.getElementById('chartTab-' + t).classList.toggle('active-tab', t === type);
+  });
+  renderMainChart();
+}
+
+function setWeek(w) {
+  state.currentWeek = Math.max(1, Math.min(TOTAL_WEEKS, parseInt(w) || 1));
+  renderTopology();
+  renderFormulaInspector();
+  renderMainChart();
+}
+
+function stepWeek(delta) {
+  setWeek(state.currentWeek + delta);
+}
+
+function togglePlay() {
+  state.playing = !state.playing;
+  const btn = document.getElementById('playPauseBtn');
+  if (state.playing) {
+    btn.textContent = '⏸ 暂停';
+    state.timer = setInterval(() => {
+      if (state.currentWeek >= TOTAL_WEEKS) state.currentWeek = 1;
+      else state.currentWeek++;
+      setWeek(state.currentWeek);
+    }, 400);
+  } else {
+    btn.textContent = '▶ 自动播放';
+    clearInterval(state.timer);
+  }
+}
+
+function syncControlsFromParams() {
+  const p = state.params;
+  document.getElementById('inp-demandStep').value = p.demandStep;
+  document.getElementById('val-demandStep').textContent = `${p.demandStep} 件 (+${p.demandStep - 100}%)`;
+  document.getElementById('inp-safety').value = p.safety;
+  document.getElementById('val-safety').textContent = p.safety.toFixed(2);
+  document.getElementById('inp-lead').value = p.lead;
+  document.getElementById('val-lead').textContent = `${p.lead} 周`;
+  document.getElementById('inp-pipe').value = p.pipe;
+  document.getElementById('val-pipe').textContent = p.pipe.toFixed(2);
+  document.getElementById('inp-gamma').value = p.gamma;
+  document.getElementById('val-gamma').textContent = p.gamma.toFixed(2);
+  document.getElementById('inp-alpha').value = p.alpha;
+  document.getElementById('val-alpha').textContent = p.alpha.toFixed(2);
+  document.getElementById('inp-pos').value = p.pos;
+  document.getElementById('val-pos').textContent = `${Math.round(p.pos * 100)}%`;
+
+  document.querySelectorAll('.batch-btn').forEach(b => {
+    b.classList.toggle('active-tab', parseInt(b.getAttribute('data-batch')) === p.batch);
+  });
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active-tab', b.getAttribute('data-bmode') === p.backlogMode);
+  });
+  document.getElementById('val-batch').textContent = `批量${p.batch} / ${p.backlogMode === 'backorder' ? '积压' : '失销'}`;
+}
+
+function nudgeSlider(id, delta) {
+  const el = document.getElementById(id);
+  const step = parseFloat(el.step) || 1;
+  const min = parseFloat(el.min);
+  const max = parseFloat(el.max);
+  let next = Math.round((parseFloat(el.value) + delta) / step) * step;
+  next = Math.max(min, Math.min(max, next));
+  el.value = next;
+  updateParam(id.replace('inp-', ''));
+}
+
+function setBatch(b) {
+  state.params.batch = b;
+  state.expName = '自定义参数实验';
+  updatePresetHighlight('custom');
+  syncControlsFromParams();
+  updateSimulationAndRender();
+}
+
+function setBacklogMode(m) {
+  state.params.backlogMode = m;
+  state.expName = '自定义参数实验';
+  updatePresetHighlight('custom');
+  syncControlsFromParams();
+  updateSimulationAndRender();
+}
+
+function updateParam(changedKey) {
+  state.params.demandStep = parseInt(document.getElementById('inp-demandStep').value);
+  state.params.safety = parseFloat(document.getElementById('inp-safety').value);
+  state.params.lead = parseInt(document.getElementById('inp-lead').value);
+  state.params.pipe = parseFloat(document.getElementById('inp-pipe').value);
+  state.params.gamma = parseFloat(document.getElementById('inp-gamma').value);
+  state.params.alpha = parseFloat(document.getElementById('inp-alpha').value);
+  state.params.pos = parseFloat(document.getElementById('inp-pos').value);
+
+  // If user adjusts POS sharing while Retailer is selected, auto-focus Factory so they immediately see the effect
+  if (changedKey === 'pos' && state.selectedStage === 0) {
+    state.selectedStage = 3;
+  }
+  // If user is on Weeks 1-4 (pre-shock), jump to Week 6 so parameter changes are immediately visible
+  if (state.currentWeek < 5) {
+    state.currentWeek = 6;
+  }
+
+  state.expName = '自定义参数实验';
+  updatePresetHighlight('custom');
+  syncControlsFromParams();
+  updateSimulationAndRender();
+}
+
+function loadExperiment(code) {
+  const presets = {
+    exp1_amp: { name: '实验一A：+5%需求层层放大（典型牛鞭效应）', p: { demandStep: 105, safety: 0.50, lead: 2, pipe: 0.80, gamma: 0.80, alpha: 0.40, pos: 0, batch: 1, backlogMode: 'backorder', factoryCap: 250 }, w: 6 },
+    exp1_smooth: { name: '实验一B：+5%需求平稳无放大对照', p: { demandStep: 105, safety: 0.10, lead: 1, pipe: 1.00, gamma: 0.20, alpha: 0.15, pos: 0.9, batch: 1, backlogMode: 'backorder', factoryCap: 250 }, w: 6 },
+    exp2_panic: { name: '实验二：越怕缺货，反而越容易积压库存', p: { demandStep: 105, safety: 0.95, lead: 2, pipe: 0.60, gamma: 0.90, alpha: 0.50, pos: 0, batch: 1, backlogMode: 'backorder', factoryCap: 250 }, w: 10 },
+    exp3_short: { name: '实验三（对照1）：短物流提前期 (L=1周)', p: { demandStep: 105, safety: 0.45, lead: 1, pipe: 0.80, gamma: 0.75, alpha: 0.40, pos: 0, batch: 1, backlogMode: 'backorder', factoryCap: 250 }, w: 7 },
+    exp3_med: { name: '实验三（对照2）：中物流提前期 (L=2周)', p: { demandStep: 105, safety: 0.45, lead: 2, pipe: 0.80, gamma: 0.75, alpha: 0.40, pos: 0, batch: 1, backlogMode: 'backorder', factoryCap: 250 }, w: 7 },
+    exp3_long: { name: '实验三（对照3）：长物流提前期 (L=4周)', p: { demandStep: 105, safety: 0.45, lead: 4, pipe: 0.80, gamma: 0.75, alpha: 0.40, pos: 0, batch: 1, backlogMode: 'backorder', factoryCap: 250 }, w: 9 },
+    exp4_base: { name: '实验四（4-0 基准）：未优化传统供应链', p: { demandStep: 105, safety: 0.50, lead: 2, pipe: 0.75, gamma: 0.80, alpha: 0.40, pos: 0, batch: 10, backlogMode: 'backorder', factoryCap: 250 }, w: 6 },
+    exp4_pos: { name: '实验四（4-1 优化）：共享终端POS真实需求 (ω=100%)', p: { demandStep: 105, safety: 0.50, lead: 2, pipe: 0.75, gamma: 0.80, alpha: 0.40, pos: 1.0, batch: 10, backlogMode: 'backorder', factoryCap: 250 }, w: 6 },
+    exp4_lead: { name: '实验四（4-2 优化）：缩短补货提前期 (L: 2→1周)', p: { demandStep: 105, safety: 0.50, lead: 1, pipe: 0.75, gamma: 0.80, alpha: 0.40, pos: 0, batch: 10, backlogMode: 'backorder', factoryCap: 250 }, w: 6 },
+    exp4_pipe: { name: '实验四（4-3 优化）：100%理性计入在途库存 (θ=1.0)', p: { demandStep: 105, safety: 0.50, lead: 2, pipe: 1.00, gamma: 0.80, alpha: 0.40, pos: 0, batch: 10, backlogMode: 'backorder', factoryCap: 250 }, w: 6 },
+    exp4_smooth: { name: '实验四（4-4 优化）：平滑订货调整策略 (γ=0.25)', p: { demandStep: 105, safety: 0.50, lead: 2, pipe: 0.75, gamma: 0.25, alpha: 0.40, pos: 0, batch: 10, backlogMode: 'backorder', factoryCap: 250 }, w: 6 },
+    exp4_zero_safety: { name: '实验四（4-5 反例）：砍光安全库存 (β=0 导致严重缺货)', p: { demandStep: 105, safety: 0.0, lead: 2, pipe: 0.75, gamma: 0.80, alpha: 0.40, pos: 0, batch: 10, backlogMode: 'backorder', factoryCap: 250 }, w: 7 }
+  };
+  const cfg = presets[code];
+  if (!cfg) return;
+  state.params = { ...cfg.p };
+  state.expName = cfg.name;
+  state.currentWeek = cfg.w;
+  updatePresetHighlight(code);
+  syncControlsFromParams();
+  updateSimulationAndRender();
+}
+
+// ==================== 50-WEEK INTERACTIVE GAME ====================
+let gameState = { role: 0, week: 1, orders: {}, aiSim: null, playerSim: null, params: null };
+
+function setGameRole(r) {
+  gameState.role = r;
+  document.getElementById('roleBtn-0').classList.toggle('active-tab', r === 0);
+  document.getElementById('roleBtn-3').classList.toggle('active-tab', r === 3);
+  initGame();
+}
+
+function initGame() {
+  const r = gameState.role || 0;
+  const gameParams = { demandStep: 105, safety: 0.45, lead: 2, pipe: 0.85, gamma: 0.75, alpha: 0.35, pos: 0, batch: 1, backlogMode: 'backorder', factoryCap: 250 };
+  gameState = {
+    role: r,
+    week: 1,
+    orders: {},
+    params: gameParams,
+    aiSim: runSimulation(gameParams),
+    playerSim: runSimulation(gameParams)
+  };
+  document.getElementById('game-statusBadge').textContent = '进行中';
+  refreshGameUI();
+}
+
+function nudgeGameOrder(delta) {
+  const s = document.getElementById('game-orderSlider');
+  s.value = Math.max(0, Math.min(250, parseInt(s.value) + delta));
+  document.getElementById('game-orderVal').textContent = s.value + ' 件';
+}
+
+function refreshGameUI() {
+  const w = gameState.week;
+  const rIdx = gameState.role;
+  const stRec = gameState.playerSim.stages[rIdx].history[w - 1];
+
+  document.getElementById('game-weekLabel').textContent = `第 ${w} / 50 周`;
+  document.getElementById('game-inOrder').textContent = `${stRec.downOrder} 件`;
+  document.getElementById('game-onHand').textContent = `${Math.round(stRec.endOnHand)} 件`;
+  document.getElementById('game-inTransit').textContent = `${stRec.inTransitQueue.map(x => Math.round(x)).join(' / ')} 件`;
+  document.getElementById('game-backlog').textContent = `${Math.round(stRec.endBacklog)} 件`;
+  document.getElementById('game-aiSuggest').textContent = stRec.aiSuggestedOrder;
+  document.getElementById('game-orderSlider').value = stRec.aiSuggestedOrder;
+  document.getElementById('game-orderVal').textContent = `${stRec.aiSuggestedOrder} 件`;
+
+  const myCost = Math.round(gameState.playerSim.stages[rIdx].history.slice(0, w).reduce((a, r) => a + r.totalCost, 0));
+  const aiCost = Math.round(gameState.aiSim.stages[rIdx].history.slice(0, w).reduce((a, r) => a + r.totalCost, 0));
+  document.getElementById('game-myCost').textContent = `$${myCost.toLocaleString()}`;
+  document.getElementById('game-aiCost').textContent = `$${aiCost.toLocaleString()}`;
+
+  const cVar = calcVariance(gameState.playerSim.consumerHistory.slice(0, Math.max(6, w)));
+  const fVar = calcVariance(gameState.playerSim.stages[3].history.slice(0, Math.max(6, w)).map(r => r.orderPlaced));
+  document.getElementById('game-bwr').textContent = cVar > 0 ? `${(fVar / cVar).toFixed(1)}x` : '1.0x';
+
+  renderGameChart();
+}
+
+function submitGameWeek() {
+  const val = parseInt(document.getElementById('game-orderSlider').value);
+  gameState.orders[gameState.week] = val;
+  gameState.playerSim = runSimulation(gameState.params, { role: gameState.role, orders: gameState.orders });
+
+  const rec = gameState.playerSim.stages[gameState.role].history[gameState.week - 1];
+  let fb = '库存运行平稳';
+  if (rec.endBacklog > 0) fb = `发生缺货积压 ${Math.round(rec.endBacklog)} 件！`;
+  else if (val > rec.downOrder * 1.25) fb = '超额追单正向上游放大牛鞭效应';
+  document.getElementById('game-feedback').textContent = fb;
+
+  if (gameState.week < 50) {
+    gameState.week++;
+    refreshGameUI();
+  } else {
+    document.getElementById('game-statusBadge').textContent = '50周挑战已完成！';
+    refreshGameUI();
+  }
+}
+
+function autoFinishGame() {
+  while (gameState.week <= 50) {
+    const rec = gameState.playerSim.stages[gameState.role].history[gameState.week - 1];
+    if (gameState.orders[gameState.week] === undefined) {
+      gameState.orders[gameState.week] = rec.aiSuggestedOrder;
+    }
+    if (gameState.week === 50) break;
+    gameState.week++;
+  }
+  gameState.playerSim = runSimulation(gameState.params, { role: gameState.role, orders: gameState.orders });
+  document.getElementById('game-statusBadge').textContent = '50周挑战已完成！';
+  refreshGameUI();
+}
+
+function renderGameChart() {
+  const canvas = document.getElementById('gameChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 42, r: 16, t: 22, b: 24 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+
+  const rIdx = gameState.role;
+  const maxW = gameState.week;
+
+  ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif';
+  ctx.fillText(`你的订货量 (浅蓝实线) vs AI策略订货量 (黄虚线) vs 消费者需求 (紫线)`, pad.l, 15);
+
+  const toXY = (wIdx, val) => ({
+    x: pad.l + (wIdx / 49) * plotW,
+    y: pad.t + ((240 - val) / 240) * plotH
+  });
+
+  ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let i = 0; i < maxW; i++) {
+    const pt = toXY(i, gameState.playerSim.consumerHistory[i]);
+    if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = '#eab308'; ctx.setLineDash([4, 4]); ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i < maxW; i++) {
+    const pt = toXY(i, gameState.aiSim.stages[rIdx].history[i].orderPlaced);
+    if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.8; ctx.beginPath();
+  for (let i = 0; i < maxW; i++) {
+    const pt = toXY(i, gameState.playerSim.stages[rIdx].history[i].orderPlaced);
+    if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.stroke();
+}
+
+// ==================== 5 PREDICTION CHALLENGES ====================
+const QUIZZES = [
+  {
+    q: "预测挑战 1：消费者需求增长 5%，上游工厂订单必然增长超过 5% 吗？",
+    opts: ["A. 必然超过 5%，这是供应链铁律", "B. 不一定，平滑补货且100%计入在途时可接近 5%"],
+    ans: 1,
+    expCode: "exp1_smooth",
+    explain: "结论：不一定！当 α=0.15, γ=0.20, θ=1.0 时，+5% 的终端需求传到工厂几乎不发生放大。"
+  },
+  {
+    q: "预测挑战 2：所有企业同时提高安全库存系数 (β)，供应链是否一定更安全？",
+    opts: ["A. 是的，安全垫越厚越安全", "B. 反而造成初期抢货断货，随后在途集中到货引发严重积压"],
+    ans: 1,
+    expCode: "exp2_panic",
+    explain: "结论：合成谬误！全链同步拉高安全系数 β 会瞬间抽干上游现货，并在 L 周后形成海啸式爆仓。"
+  },
+  {
+    q: "预测挑战 3：消费者需求企稳在 105 件后，为什么工厂仍可能收到远超 105 件的订单？",
+    opts: ["A. 渠道补库与积压订单存在多周相位延迟 (Phase Lag)", "B. 消费者在偷偷囤货"],
+    ans: 0,
+    expCode: "exp1_amp",
+    explain: "结论：多级提前期造成了相位延迟，中游企业的补库洪峰经过数周才传导至工厂。"
+  },
+  {
+    q: "预测挑战 4：如果工厂 100% 知道真实终端需求（POS 共享），牛鞭效应是否一定完全消失？",
+    opts: ["A. 100% 完全消失", "B. 大幅减弱但不会完全消失，运输提前期与批量凑整仍会造成波动"],
+    ans: 1,
+    expCode: "exp4_pos",
+    explain: "结论：不会完全消失！即便消除了预测失真，物理提前期 L 的管道补库与批量凑整依然存在。"
+  },
+  {
+    q: "预测挑战 5：为什么缩短运输时间 (L) 有时比单纯提高预测准确率更有效？",
+    opts: ["A. 提前期 L 直接充当了目标库存乘数并决定了反馈延迟盲区", "B. 运输快能减少破损"],
+    ans: 0,
+    expCode: "exp3_short",
+    explain: "结论：缩短 L 不仅成倍压缩了在途蓄水池需求，还缩短了‘下单到见货’的盲区窗口。"
+  }
+];
+
+function renderQuizzes() {
+  const box = document.getElementById('quizListContainer');
+  box.innerHTML = QUIZZES.map((item, qIdx) => `
+    <div class="quiz-card">
+      <div style="font-weight:700; font-size:13.5px;">${item.q}</div>
+      <div class="quiz-opts">
+        ${item.opts.map((opt, oIdx) => `
+          <button id="qBtn-${qIdx}-${oIdx}" onclick="answerQuiz(${qIdx}, ${oIdx})">${opt}</button>
+        `).join('')}
+        <button class="primary" onclick="switchMode('lab'); loadExperiment('${item.expCode}')">▶ 加载此对照实验</button>
+      </div>
+      <div id="quizFeedback-${qIdx}" class="quiz-feedback hidden"></div>
+    </div>
+  `).join('');
+}
+
+function answerQuiz(qIdx, oIdx) {
+  const item = QUIZZES[qIdx];
+  item.opts.forEach((_, idx) => {
+    document.getElementById(`qBtn-${qIdx}-${idx}`).classList.toggle('active-tab', idx === oIdx);
+  });
+  const fb = document.getElementById('quizFeedback-' + qIdx);
+  fb.classList.remove('hidden');
+  const isRight = (oIdx === item.ans);
+  fb.style.borderColor = isRight ? 'var(--ok)' : 'var(--danger)';
+  fb.innerHTML = `<strong>${isRight ? '✓ 预测正确！' : '✕ 预测有偏差：'}</strong> ${item.explain}`;
+}
+
+function switchMode(m) {
+  state.mode = m;
+  ['lab', 'game', 'quiz'].forEach(k => {
+    document.getElementById('mode-' + k).classList.toggle('hidden', k !== m);
+    document.getElementById('tabBtn-' + k).classList.toggle('active-tab', k === m);
+  });
+  if (m === 'lab') updateSimulationAndRender();
+  if (m === 'game') refreshGameUI();
+}
+
+function runSelfCheck() {
+  const sim = state.simData;
+  let pass = true;
+  sim.stages.forEach(st => {
+    st.history.forEach(r => {
+      if (Math.abs((r.avail - r.shipped) - r.endOnHand) > 1e-5) pass = false;
+      if (r.shipped > r.avail + 1e-5) pass = false;
+    });
+  });
+  const banner = document.getElementById('selfCheckBanner');
+  const text = document.getElementById('selfCheckText');
+  banner.classList.remove('hidden');
+  text.textContent = pass
+    ? "✅ 10项守恒自检全部通过：可用库存 - 实际发货 = 期末库存（0误差）｜发货严守现货上限｜在途队列按 L 周严格抵达｜BWR含零方差保护。"
+    : "❌ 自检异常";
+}
+
+function downloadSelfHTML() {
+  const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+  const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "bullwhip_lab_v2.html";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+window.addEventListener('resize', () => {
+  if (state.mode === 'lab') renderMainChart();
+  if (state.mode === 'game') renderGameChart();
+});
+
+// Initialize
+syncControlsFromParams();
+updateSimulationAndRender();
+initGame();
+renderQuizzes();
+</script>
+</body>
+</html>
